@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AZAHAR HEAT — an original open-world crime game</title>
+<style>
+  :root{
+    --ink:#fff7ea; --dim:#ffd9a0; --accent:#ffb347; --accent2:#ff5d73;
+    --panel:rgba(12,10,24,.78); --panel2:rgba(20,14,36,.92);
+    --good:#7dff9a; --bad:#ff6b6b;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{width:100%;height:100%;overflow:hidden;background:#0b0a18;
+    font-family:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;color:var(--ink);}
+  #game-canvas{position:fixed;inset:0;display:block;}
+  /* ---------- HUD ---------- */
+  #hud{position:fixed;inset:0;pointer-events:none;z-index:5;}
+  #hud.hidden{display:none;}
+  #minimap-wrap{position:absolute;left:16px;bottom:16px;width:196px;height:196px;
+    border-radius:14px;overflow:hidden;border:2px solid rgba(255,255,255,.35);
+    box-shadow:0 6px 24px rgba(0,0,0,.55);background:#101426;}
+  #minimap{width:196px;height:196px;display:block;}
+  #minimap-label{position:absolute;left:16px;bottom:216px;font-size:11px;letter-spacing:.18em;
+    text-transform:uppercase;color:var(--dim);text-shadow:0 1px 3px #000;}
+  #top-right{position:absolute;right:18px;top:14px;text-align:right;}
+  #wanted{font-size:26px;letter-spacing:.12em;line-height:1;text-shadow:0 2px 6px rgba(0,0,0,.8);}
+  #wanted .star{color:rgba(255,255,255,.22);}
+  #wanted .star.on{color:#ffd23e;text-shadow:0 0 10px rgba(255,210,62,.9);}
+  #cash{font-size:24px;font-weight:700;color:var(--good);text-shadow:0 2px 5px rgba(0,0,0,.85);margin-top:4px;}
+  #cash small{font-size:12px;color:var(--dim);font-weight:400;letter-spacing:.14em;}
+  #clock-line{font-size:13px;color:var(--dim);text-shadow:0 1px 3px #000;margin-top:2px;}
+  #bars{position:absolute;right:18px;top:96px;width:190px;}
+  .bar-row{display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:11px;
+    letter-spacing:.12em;text-transform:uppercase;color:var(--dim);text-shadow:0 1px 2px #000;}
+  .bar{flex:1;height:9px;border-radius:5px;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.25);overflow:hidden;}
+  .bar>i{display:block;height:100%;border-radius:5px;transition:width .18s ease;}
+  #health-fill{background:linear-gradient(90deg,#ff5d73,#ff9a5d);width:100%;}
+  #armor-fill{background:linear-gradient(90deg,#5db9ff,#8be0ff);width:0%;}
+  #bust-wrap{display:none;margin-top:4px;}
+  #bust-wrap.show{display:flex;}
+  #bust-fill{background:linear-gradient(90deg,#ffe23e,#ff5d5d);width:0%;}
+  #objective{position:absolute;left:50%;top:18px;transform:translateX(-50%);max-width:62%;
+    background:var(--panel);border:1px solid rgba(255,179,71,.5);border-radius:12px;
+    padding:9px 18px;text-align:center;box-shadow:0 4px 18px rgba(0,0,0,.45);}
+  #objective.hidden{display:none;}
+  #objective .obj-kicker{font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--accent);}
+  #objective .obj-text{font-size:16px;font-weight:600;margin-top:2px;}
+  #objective .obj-sub{font-size:12px;color:var(--dim);margin-top:1px;}
+  #prompt{position:absolute;left:50%;bottom:128px;transform:translateX(-50%);
+    background:var(--panel2);border:1px solid rgba(255,255,255,.35);border-radius:999px;
+    padding:8px 18px;font-size:14px;display:none;box-shadow:0 4px 14px rgba(0,0,0,.5);}
+  #prompt.show{display:block;}
+  #prompt b{color:var(--accent);}
+  #speedo{position:absolute;right:22px;bottom:20px;text-align:right;display:none;}
+  #speedo.show{display:block;}
+  #speedo .num{font-size:44px;font-weight:800;line-height:.95;text-shadow:0 3px 8px rgba(0,0,0,.8);}
+  #speedo .unit{font-size:12px;letter-spacing:.2em;color:var(--dim);text-transform:uppercase;}
+  #speedo .car-name{font-size:13px;color:var(--accent);margin-top:2px;text-shadow:0 1px 3px #000;}
+  #weapon{position:absolute;right:22px;bottom:110px;text-align:right;display:none;}
+  #weapon.show{display:block;}
+  #weapon .w-name{font-size:14px;font-weight:700;letter-spacing:.06em;text-shadow:0 1px 3px #000;}
+  #weapon .w-ammo{font-size:12px;color:var(--dim);}
+  /* dialogue + banners + toasts */
+  #dialogue{position:absolute;left:50%;bottom:34px;transform:translateX(-50%);width:min(680px,86%);
+    background:var(--panel2);border-left:4px solid var(--accent);border-radius:10px;
+    padding:12px 18px;display:none;box-shadow:0 8px 26px rgba(0,0,0,.55);}
+  #dialogue.show{display:block;}
+  #dialogue .who{font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);margin-bottom:3px;}
+  #dialogue .line{font-size:17px;line-height:1.35;}
+  #dialogue .hint{font-size:11px;color:var(--dim);margin-top:5px;}
+  #banner{position:absolute;left:50%;top:34%;transform:translate(-50%,-50%) scale(.92);
+    text-align:center;opacity:0;transition:opacity .35s ease,transform .35s ease;pointer-events:none;}
+  #banner.show{opacity:1;transform:translate(-50%,-50%) scale(1);}
+  #banner .big{font-size:52px;font-weight:900;letter-spacing:.04em;color:var(--accent);
+    text-shadow:0 4px 0 rgba(120,40,0,.55),0 10px 30px rgba(0,0,0,.7);text-transform:uppercase;}
+  #banner .small{font-size:17px;color:var(--ink);text-shadow:0 2px 6px #000;margin-top:4px;}
+  #toasts{position:absolute;left:18px;top:16px;display:flex;flex-direction:column;gap:6px;max-width:330px;}
+  .toast{background:var(--panel);border:1px solid rgba(255,255,255,.22);border-radius:9px;
+    padding:7px 12px;font-size:13px;box-shadow:0 3px 10px rgba(0,0,0,.4);animation:toast-in .25s ease;}
+  .toast b{color:var(--accent);}
+  @keyframes toast-in{from{opacity:0;transform:translateX(-8px);}to{opacity:1;transform:none;}}
+  #damage-vignette{position:fixed;inset:0;pointer-events:none;z-index:6;opacity:0;
+    background:radial-gradient(ellipse at center,transparent 55%,rgba(200,10,30,.55) 100%);}
+  #fade{position:fixed;inset:0;background:#000;z-index:40;opacity:1;pointer-events:none;transition:opacity .6s ease;}
+  /* ---------- screens ---------- */
+  .screen{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;
+    flex-direction:column;text-align:center;padding:24px;}
+  .screen.hidden{display:none;}
+  #start-screen{background:linear-gradient(180deg,rgba(30,8,40,.25),rgba(8,4,18,.88) 78%);}
+  #start-screen h1{font-size:min(92px,11vw);font-weight:900;letter-spacing:.02em;line-height:.95;
+    background:linear-gradient(180deg,#ffe9b0,#ffb347 55%,#ff5d73);-webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(0 6px 22px rgba(255,93,115,.35));text-transform:uppercase;}
+  #start-screen .tag{font-size:18px;color:var(--ink);text-shadow:0 2px 8px #000;margin-top:10px;max-width:620px;}
+  #start-screen .sub{font-size:13px;color:var(--dim);margin-top:6px;letter-spacing:.14em;text-transform:uppercase;}
+  .btn{pointer-events:auto;cursor:pointer;border:1px solid rgba(255,255,255,.4);color:var(--ink);
+    background:linear-gradient(180deg,rgba(255,120,80,.85),rgba(200,40,80,.85));
+    font-size:17px;font-weight:700;letter-spacing:.06em;padding:13px 34px;border-radius:999px;margin-top:14px;
+    box-shadow:0 8px 24px rgba(0,0,0,.5);transition:transform .12s ease,filter .12s ease;font-family:inherit;}
+  .btn:hover{transform:translateY(-2px) scale(1.03);filter:brightness(1.12);}
+  .btn.ghost{background:rgba(10,8,24,.6);font-size:14px;padding:10px 24px;}
+  .btn-row{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;}
+  #pause-screen,#help-screen,#end-screen{background:rgba(6,4,16,.82);backdrop-filter:blur(3px);}
+  .panel-card{background:var(--panel2);border:1px solid rgba(255,179,71,.4);border-radius:16px;
+    padding:26px 34px;max-width:640px;box-shadow:0 14px 44px rgba(0,0,0,.6);}
+  .panel-card h2{font-size:30px;text-transform:uppercase;letter-spacing:.05em;color:var(--accent);margin-bottom:10px;}
+  .panel-card p{font-size:14px;line-height:1.55;color:var(--ink);}
+  .keys{display:grid;grid-template-columns:auto 1fr;gap:5px 16px;text-align:left;font-size:14px;margin:14px auto 4px;max-width:430px;}
+  .keys b{color:var(--accent);font-weight:700;white-space:nowrap;}
+  #end-screen h1{font-size:64px;font-weight:900;text-transform:uppercase;color:var(--accent2);
+    text-shadow:0 6px 26px rgba(0,0,0,.8);}
+  #end-screen .why{font-size:17px;margin-top:8px;text-shadow:0 2px 6px #000;}
+  #loading{position:fixed;inset:0;z-index:50;background:#0b0a18;display:flex;align-items:center;justify-content:center;
+    flex-direction:column;gap:12px;font-size:15px;color:var(--dim);letter-spacing:.2em;text-transform:uppercase;}
+  #loading.hidden{display:none;}
+  .spin{width:38px;height:38px;border-radius:50%;border:4px solid rgba(255,179,71,.25);border-top-color:var(--accent);
+    animation:sp 0.9s linear infinite;}
+  @keyframes sp{to{transform:rotate(360deg);}}
+</style>
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.min.js" } }
+</script>
+</head>
+<body>
+<canvas id="game-canvas"></canvas>
+
+<div id="hud" class="hidden">
+  <div id="toasts"></div>
+  <div id="objective" class="hidden">
+    <div class="obj-kicker" id="obj-kicker">Mission</div>
+    <div class="obj-text" id="obj-text">Explore Azahar Bay</div>
+    <div class="obj-sub" id="obj-sub"></div>
+  </div>
+  <div id="top-right">
+    <div id="wanted" aria-label="wanted level"></div>
+    <div id="cash">$0 <small>CASH</small></div>
+    <div id="clock-line">Day 1 · 08:00 · Azahar Bay</div>
+  </div>
+  <div id="bars">
+    <div class="bar-row"><span>Health</span><div class="bar"><i id="health-fill"></i></div></div>
+    <div class="bar-row"><span>Armour</span><div class="bar"><i id="armor-fill"></i></div></div>
+    <div class="bar-row" id="bust-wrap"><span>Busted</span><div class="bar"><i id="bust-fill"></i></div></div>
+  </div>
+  <div id="minimap-label">Azahar Bay</div>
+  <div id="minimap-wrap"><canvas id="minimap" width="196" height="196"></canvas></div>
+  <div id="prompt"></div>
+  <div id="weapon"><div class="w-name" id="weapon-name">Fists</div><div class="w-ammo" id="weapon-ammo"></div></div>
+  <div id="speedo"><div class="num" id="speed-num">0</div><div class="unit">km/h</div><div class="car-name" id="car-name"></div></div>
+  <div id="dialogue"><div class="who" id="dlg-who"></div><div class="line" id="dlg-line"></div><div class="hint">Press E to continue</div></div>
+  <div id="banner"><div class="big" id="banner-big"></div><div class="small" id="banner-small"></div></div>
+</div>
+<div id="damage-vignette"></div>
+
+<div id="start-screen" class="screen">
+  <h1>Azahar<br>Heat</h1>
+  <div class="tag">One washed-up wheelman. One sun-bleached city that owes him money.
+    Steal cars, run jobs for the Marisol family, and try to leave Azahar Bay richer than the tide.</div>
+  <div class="sub">An original open-world crime game · keyboard + mouse</div>
+  <div class="btn-row">
+    <button class="btn" id="btn-start">Start story</button>
+    <button class="btn ghost" id="btn-continue" style="display:none">Continue</button>
+    <button class="btn ghost" id="btn-free">Free roam</button>
+    <button class="btn ghost" id="btn-help">Controls</button>
+  </div>
+  <div class="sub" id="save-note"></div>
+  <div class="sub" style="margin-top:14px;letter-spacing:.05em;text-transform:none">
+    Tip: the gold <b style="color:var(--accent)">M</b> on your minimap is the next story job.
+    Everything with a price tag in Azahar Bay can be driven, run from, or run over.</div>
+</div>
+<noscript><div style="position:fixed;inset:0;background:#0b0a18;color:#fff;display:flex;align-items:center;justify-content:center">AZAHAR HEAT needs JavaScript to run.</div></noscript>
+
+<div id="pause-screen" class="screen hidden">
+  <div class="panel-card">
+    <h2>Paused</h2>
+    <p id="pause-stats">Cash $0 · Story 0/6 · Day 1</p>
+    <div class="btn-row">
+      <button class="btn" id="btn-resume">Resume</button>
+      <button class="btn ghost" id="btn-pause-help">Controls</button>
+      <button class="btn ghost" id="btn-restart">Restart story</button>
+    </div>
+  </div>
+</div>
+
+<div id="help-screen" class="screen hidden">
+  <div class="panel-card">
+    <h2>Controls</h2>
+    <div class="keys">
+      <b>W A S D</b><span>Move / drive (also arrow keys)</span>
+      <b>Shift</b><span>Sprint on foot · handbrake boost feel in car</span>
+      <b>Space</b><span>Handbrake in car · jump a small hop on foot</span>
+      <b>E / F</b><span>Interact · enter / exit car · talk</span>
+      <b>Mouse</b><span>Move to orbit camera · hold left button to attack / shoot</span>
+      <b>1 / 2</b><span>Fists / Marlin pistol (once you own it)</span>
+      <b>R</b><span>Reload pistol</span>
+      <b>M</b><span>Toggle engine sound / mute all sound</span>
+      <b>Esc / P</b><span>Pause menu</span>
+      <b>H</b><span>This help screen</span>
+    </div>
+    <p>Follow the gold marker on the minimap for story jobs. Yellow dots are taxi fares,
+       cyan flags are checkpoint races, pink stars are lost charter tokens. Lose the police
+       by breaking line of sight — your wanted stars blink while you are hiding.</p>
+    <div class="btn-row"><button class="btn" id="btn-help-back">Back</button></div>
+  </div>
+</div>
+
+<div id="end-screen" class="screen hidden">
+  <h1 id="end-title">Busted</h1>
+  <div class="why" id="end-why">The Azahar Bay PD finally boxed you in.</div>
+  <div class="btn-row">
+    <button class="btn" id="btn-again">Back on the street</button>
+  </div>
+</div>
+
+<div id="fade"></div>
+<div id="loading"><div class="spin"></div><div>Building Azahar Bay…</div></div>
+
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
